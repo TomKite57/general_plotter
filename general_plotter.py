@@ -79,6 +79,10 @@ def plotter(file, args):
     ax.set_title(args.title) if args.title else None
     ax.set_xlim(args.xlim) if args.xlim else None
     ax.set_ylim(args.ylim) if args.ylim else None
+    for h in args.hlines:
+        ax.axhline(h, color="black", linestyle="--")
+    for v in args.vlines:
+        ax.axvline(v, color="black", linestyle="--")
 
     # Main plot loop
     for counter, y in enumerate(args.ycols):
@@ -118,6 +122,9 @@ def parser():
     # Limits
     parser.add_argument('--xlim', type=float, nargs=2, default=None, required=False, help='X axis limits')
     parser.add_argument('--ylim', type=float, nargs=2, default=None, required=False, help='Y axis limits')
+    # hlines + vlines
+    parser.add_argument('--hlines', type=float, nargs='*', default=[], required=False, help='Horizontal lines')
+    parser.add_argument('--vlines', type=float, nargs='*', default=[], required=False, help='Vertical lines')
     # Save
     parser.add_argument('--savename', type=str, default=None, required=False, help='Save figure as PNG')
     # Misc
