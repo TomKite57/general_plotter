@@ -53,7 +53,7 @@ def file_exists(filename):
     return rval
 
 
-def plotter(file, args):
+def plotter(file, args, plot_counter):
     """Plot data from a file.
 
     Args:
@@ -83,6 +83,7 @@ def plotter(file, args):
         ax.axhline(h, color="black", linestyle="--")
     for v in args.vlines:
         ax.axvline(v, color="black", linestyle="--")
+    ax.grid(args.grid, which="both", axis="both", linestyle="--", linewidth=0.5, color="black", alpha=0.5)
 
     # Main plot loop
     for counter, y in enumerate(args.ycols):
@@ -91,9 +92,9 @@ def plotter(file, args):
 
     ax.legend() if (args.ylabels and len(args.ylabels)>1) else None
 
-    if args.savename:
-        plt.savefig(args.savename, dpi=args.dpi)
-        log_message(f"Saved figure as {args.savename}")
+    if args.savenames is not None:
+        plt.savefig(args.savenames[plot_counter], dpi=args.dpi)
+        log_message(f"Saved figure as {args.savenames[plot_counter]}")
     else:
         plt.show()
         log_message("Showing figure")
@@ -108,13 +109,17 @@ def parser():
     parser = argparse.ArgumentParser(description='Plot data from a CSV file.')
 
     # File
-    parser.add_argument('file', type=str, nargs="+", help='CSV file path')
+    parser.add_argument('files', metavar="file(s)", type=str, nargs="+", help='CSV file path(s)')
     # Columns
     parser.add_argument('--xcol', type=int, default=0, required=False, help='X column name')
-    parser.add_argument('--ycols', type=int, nargs='*', default=[1], required=False, help='Y column names')
+    parser.add_argument('--ycol(s)', dest="ycols", metavar=("ycol", "ycols"), type=int, nargs='+', default=[1], required=False, help='Y column name(s)')
+    parser.add_argument('--ycol', dest="ycols", type=int, nargs='+', default=[1], required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--ycols', dest="ycols", type=int, nargs='+', default=[1], required=False, help=argparse.SUPPRESS)
     # Labels + Title
     parser.add_argument('--xlabel', type=str, default="X", required=False, help='X axis label')
-    parser.add_argument('--ylabels', type=str, default=["Y"], nargs="+", required=False, help='Y axis labels')
+    parser.add_argument('--ylabel(s)', dest="ylabels", metavar=("ylabel", "ylabels"), type=str, default=["Y"], nargs="+", required=False, help='Y axis label(s)')
+    parser.add_argument('--ylabel', dest="ylabels", type=str, default=["Y"], nargs="+", required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--ylabels', dest="ylabels", type=str, default=["Y"], nargs="+", required=False, help=argparse.SUPPRESS)
     parser.add_argument('--title', type=str, default=None, required=False, help='Plot title')
     # Scales
     parser.add_argument('--xlog', action='store_true', help='Use logarithmic scale for x-axis')
@@ -123,10 +128,18 @@ def parser():
     parser.add_argument('--xlim', type=float, nargs=2, default=None, required=False, help='X axis limits')
     parser.add_argument('--ylim', type=float, nargs=2, default=None, required=False, help='Y axis limits')
     # hlines + vlines
-    parser.add_argument('--hlines', type=float, nargs='*', default=[], required=False, help='Horizontal lines')
-    parser.add_argument('--vlines', type=float, nargs='*', default=[], required=False, help='Vertical lines')
+    parser.add_argument('--hline(s)', type=float, dest="hlines", metavar=("hline", "hlines"), nargs='+', default=[], required=False, help='Horizontal line(s)')
+    parser.add_argument('--hline', type=float, dest="hlines", nargs='*', default=[], required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--hlines', type=float, dest="hlines", nargs='*', default=[], required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--vline(s)', type=float, dest="vlines", metavar=("vline", "vlines"), nargs='+', default=[], required=False, help='Vertical line(s)')
+    parser.add_argument('--vline', type=float, dest="vlines",  nargs='*', default=[], required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--vlines', type=float, dest="vlines",  nargs='*', default=[], required=False, help=argparse.SUPPRESS)
+    # grid
+    parser.add_argument('--grid', action='store_true', help='Show grid')
     # Save
-    parser.add_argument('--savename', type=str, default=None, required=False, help='Save figure as PNG')
+    parser.add_argument('--savename(s)', dest="savenames", metavar=("savename", "savenames"), type=str, nargs='+', default=None, required=False, help='Save figure(s) as PNG')
+    parser.add_argument('--savename', dest="savenames", type=str, nargs='+', default=None, required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--savenames', dest="savenames", type=str, nargs='+', default=None, required=False, help=argparse.SUPPRESS)
     # Misc
     parser.add_argument('--dpi', type=int, default=500, required=False, help='DPI for PNG')
     parser.add_argument('--delimiter', type=str, default=",", required=False, help='File delimiter')
@@ -135,7 +148,7 @@ def parser():
     args = parser.parse_args()
 
     # Check files
-    for file in args.file:
+    for file in args.files:
         if not file_exists(file):
             log_message(f"File {file} does not exist", level="error", print_message=True)
             sys.exit(1)
@@ -150,8 +163,13 @@ def parser():
             sys.exit(1)
 
     # Fix savename
-    if args.savename:
-        args.savename = Path(args.savename).with_suffix(".png")
+    if args.savenames is not None:
+        if len(args.savenames) != len(args.files):
+            if len(args.savenames) == 1:
+                args.savenames = [f"{args.savenames[0]}_{i}" for i in range(len(args.files))]
+
+        for i, sname in enumerate(args.savenames):
+            args.savenames[i] = Path(sname).with_suffix(".png")
 
     # Fix ylabels
     if args.ylabels and len(args.ylabels) != len(args.ycols):
@@ -175,8 +193,8 @@ def main():
 
     log_message(f"Arguments: {args}", level="debug")
 
-    for file in args.file:
-        plotter(file, args)
+    for counter, file in enumerate(args.files):
+        plotter(file, args, counter)
 
     log_message("Finished plotter")
 
