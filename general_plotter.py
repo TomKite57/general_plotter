@@ -64,6 +64,9 @@ def plotter(file, args, plot_counter):
     data = np.genfromtxt(file, delimiter=args.delimiter)
 
     # Check columns
+    if args.ycols and type(args.ycols[0]) == str:
+        args.ycols = [i for i in range(0, data.shape[1]) if i != args.xcol]
+
     if args.xcol >= data.shape[1]:
         log_message(f"xcol must be < {data.shape[1]}", level="error", print_message=True)
         sys.exit(1)
@@ -84,6 +87,7 @@ def plotter(file, args, plot_counter):
     for v in args.vlines:
         ax.axvline(v, color="black", linestyle="--")
     ax.grid(args.grid, which="both", axis="both", linestyle="--", linewidth=0.5, color="black", alpha=0.5)
+
 
     # Main plot loop
     for counter, y in enumerate(args.ycols):
@@ -112,9 +116,9 @@ def parser():
     parser.add_argument('files', metavar="file(s)", type=str, nargs="+", help='CSV file path(s)')
     # Columns
     parser.add_argument('--xcol', type=int, default=0, required=False, help='X column name')
-    parser.add_argument('--ycol(s)', dest="ycols", metavar=("ycol", "ycols"), type=int, nargs='+', default=[1], required=False, help='Y column name(s)')
-    parser.add_argument('--ycol', dest="ycols", type=int, nargs='+', default=[1], required=False, help=argparse.SUPPRESS)
-    parser.add_argument('--ycols', dest="ycols", type=int, nargs='+', default=[1], required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--ycol(s)', dest="ycols", metavar=("ycol", "ycols"), type=str, nargs='+', default="all", required=False, help='Y column name(s)')
+    parser.add_argument('--ycol', dest="ycols", type=str, nargs='+', default="all", required=False, help=argparse.SUPPRESS)
+    parser.add_argument('--ycols', dest="ycols", type=str, nargs='+', default="all", required=False, help=argparse.SUPPRESS)
     # Labels + Title
     parser.add_argument('--xlabel', type=str, default="X", required=False, help='X axis label')
     parser.add_argument('--ylabel(s)', dest="ylabels", metavar=("ylabel", "ylabels"), type=str, default=["Y"], nargs="+", required=False, help='Y axis label(s)')
@@ -157,10 +161,13 @@ def parser():
     if args.xcol < 0:
         log_message(f"xcol must be >= 0", level="error", print_message=True)
         sys.exit(1)
-    for y in args.ycols:
-        if y < 0:
-            log_message(f"ycol must be >= 0", level="error", print_message=True)
-            sys.exit(1)
+    if args.ycols[0].lower() != "all":
+        for i, y in enumerate(args.ycols):
+            args.ycols[i] = int(y)
+            y = args.ycols[i]
+            if y < 0:
+                log_message(f"ycol must be >= 0", level="error", print_message=True)
+                sys.exit(1)
 
     # Fix savename
     if args.savenames is not None:
@@ -172,8 +179,8 @@ def parser():
             args.savenames[i] = Path(sname).with_suffix(".png")
 
     # Fix ylabels
-    if args.ylabels and len(args.ylabels) != len(args.ycols):
-        if len(args.ylabels) == 1:
+    if type(args.ycols[0]) != str and args.ylabels and len(args.ylabels) != len(args.ycols):
+        if len(args.ycols) == 1:
             args.ylabels = [" ".join(args.ylabels),]
         else:
             args.ylabels = [l.strip() for l in " ".join(args.ylabels).split(",")]
@@ -191,7 +198,7 @@ def main():
     # Parse arguments
     args = parser()
 
-    log_message(f"Arguments: {args}", level="debug")
+    log_message(f"Arguments: {args}", level="info")
 
     for counter, file in enumerate(args.files):
         plotter(file, args, counter)
